@@ -1,0 +1,47 @@
+FROM verificarlo/fuzzy:latest
+
+ENV LD_PRELOAD=/opt/mca-libmath/libmath.so
+
+ENV VFC_BACKENDS_FROM_FILE=/opt/vfc-backends.txt
+RUN echo "libinterflop_ieee.so" > $VFC_BACKENDS_FROM_FILE
+
+# Installation instructions found here:
+#   https://afni.nimh.nih.gov/pub/dist/doc/htmldoc/background_install/install_instructs/steps_linux_ubuntu20.html
+RUN apt-get update -qqq &&\
+    apt-get install -y software-properties-common &&\
+    add-apt-repository universe &&\
+    apt-get update -qqq
+
+# I removed already installed libs and: gnome-tweak-tool xterm eog\
+RUN apt-get install -y \
+                       tcsh \
+                       netpbm \
+                       libjpeg62 \
+                       xvfb \
+                       libglu1-mesa-dev \
+                       libglw1-mesa \
+                       libxm4
+
+RUN ln -s /usr/lib/x86_64-linux-gnu/libgsl.so.23 /usr/lib/x86_64-linux-gnu/libgsl.so.19
+RUN ln -s /usr/bin/python3 /usr/bin/python
+
+RUN mkdir -p /opt/afni/ &&\
+    cd /opt/afni/ &&\
+    curl -O https://afni.nimh.nih.gov/pub/dist/bin/misc/@update.afni.binaries &&\
+    tcsh @update.afni.binaries -package linux_ubuntu_16_64 -do_extras &&\
+    cp /root/abin/AFNI.afnirc /root/.afnirc
+
+ENV PATH=${PATH}:/root/abin
+ENV R_LIBS=/opt/R
+ENV R_MAKEVARS_USER=/opt/.R_MAKE
+
+# RUN cat > ${R_MAKEVARS_USER} <<EOF
+# CC=verificarlo-c
+# FC=verificarlo-f
+# CXX=verificarlo-c++
+# EOF
+
+RUN mkdir $R_LIBS &&\
+    rPkgsInstall -pkgs ALL
+
+# RUN afni_system_check.py -check_all
